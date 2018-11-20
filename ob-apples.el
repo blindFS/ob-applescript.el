@@ -1,4 +1,4 @@
-;;; ob-applescript.el --- org-babel functions for template evaluation
+;;; ob-apples.el --- org-babel functions for template evaluation
 
 ;; Copyright (C) Stig Brautaset
 
@@ -41,57 +41,37 @@
 (add-to-list 'org-babel-tangle-lang-exts '("applescript" . "scpt"))
 (add-to-list 'org-babel-tangle-lang-exts '("apples" . "scpt"))
 
-;; (defvar org-babel-default-header-args:applescript '(:var))
-
-
-(defun org-babel-variable-assignments:applescript (params)
-  "Return list of AppleScript statements assigning the block's variables."
-  (mapcar
-   (lambda (pair)
-     (format "set %s to %s\n"
-             (car pair)
-             (org-babel-applescript-var-to-applescript (cdr pair))))
-   (mapcar #'cdr (org-babel-get-header params :var))))
-
-(defun org-babel-applescript-var-to-applescript (var)
-  "Convert an elisp var into a string of AppleScript source code
- specifying a var of the same value."
-  (format "%S" var))
+(defvar org-babel-default-header-args:apples
+  '((:results . "silent") (:export . "none")))
 
 (defun org-babel-expand-body:applescript (body params)
-  (concat (apply #'concat
-                 (org-babel-variable-assignments:applescript params))
-          "\n"
-          body
-          "\n"))
+  "Expand BODY according to PARAMS, return the expanded body."
+  (let ((vars (org-babel--get-vars params)))
+    (mapc
+     (lambda (pair)
+       (let ((name (symbol-name (car pair)))
+	           (value (cdr pair)))
+	       (setq body
+	             (replace-regexp-in-string
+                (regexp-quote name)
+		            (if (stringp value) value (format "%S" value))
+		            body
+		            t
+		            t))))
+     vars)
+    body))
 
 (defun org-babel-execute:applescript (body params)
   "Execute a block of AppleScript code with org-babel.
  This function is called by `org-babel-execute-src-block'"
   (message "executing AppleScript source code block")
-  (let* ((processed-params (org-babel-process-params params))
-         (full-body (org-babel-expand-body:applescript body processed-params)))
-    (org-babel-applescript-table-or-string
-     (org-babel-eval "osascript" full-body)
-     params)))
+  (let ((full-body (org-babel-expand-body:applescript body params)))
+    (org-babel-eval "osascript" full-body)
+    nil))
 
 (defun org-babel-execute:apples (body params)
   "Execute a block of AppleScript with org-babel."
   (org-babel-execute:applescript body params))
 
-(defun org-babel-applescript-table-or-string (results params)
-  "If the results look like a table, then convert them into an
- Emacs-lisp table, otherwise return the results as a string."
-  (org-babel-reassemble-table
-   (org-babel-result-cond (cdr (assoc :result-params params))
-     (org-babel-read results)
-     (let ((tmp-file (org-babel-temp-file "c-")))
-       (with-temp-file tmp-file (insert results))
-       (org-babel-import-elisp-from-file tmp-file)))
-   (org-babel-pick-name
-    (cdr (assoc :colname-names params)) (cdr (assoc :colnames params)))
-   (org-babel-pick-name
-    (cdr (assoc :rowname-names params)) (cdr (assoc :rownames params)))))
-
-(provide 'ob-applescript)
-;;; ob-applescript.el ends here
+(provide 'ob-apples)
+;;; ob-apples.el ends here
